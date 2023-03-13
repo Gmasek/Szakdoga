@@ -5,7 +5,7 @@ import time
 
 from sklearn.svm import SVR
 from sklearn.linear_model import LinearRegression
-
+from sklearn.preprocessing import MinMaxScaler
 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -55,7 +55,7 @@ worksheet["C" + str(row)] = "Lin_reg"
 worksheet["D" + str(row)] = "Random_forest"
 worksheet["E" + str(row)] = "SVR"
 worksheet["F" + str(row)] = "ModLinKomb"
-for ticker in tickers [0:20]:
+for ticker in tickers [0:1]:
     worksheet[chr(Col)+chr(Col)+ str(1)] =   ticker + "Lin_reg"
     worksheet[chr(Col)+chr(Col+1) + str(1)] = ticker + "Random_forest"
     worksheet[chr(Col)+ chr(Col+2) + str(1) ] = ticker + "SVR"
@@ -173,24 +173,25 @@ for ticker in tickers [0:20]:
         Y_train = Y[:-testcycle+i]
         Y_train_rf = Y_RF[:-testcycle+i]
         X_test = X[i-testcycle:]
-        
+        scaler = MinMaxScaler( feature_range=(-1,1))
+        X_train_rf = scaler.fit_transform(X_train)
+        X_test_rf = scaler.fit_transform(X_test)
         
         
         model = LinearRegression()
         model2 = RandomForestClassifier(n_estimators=75 , oob_score=True , criterion="gini",random_state=0)
         model3 = SVR(kernel= 'poly' , degree= 4 , )
-        #svr-el 34 % os hozam egy év alatt
-        #linear regression 24%
+        
         
        
         model = model.fit(X_train,Y_train)
-        model2 = model2.fit(X_train,Y_train_rf)
+        model2 = model2.fit(X_train_rf,Y_train_rf)
         model3 = model3.fit(X_train,Y_train)
         
         
         
         tipp = model.predict(X_test)[0]
-        tipp2 = model2.predict(X_test)[0]
+        tipp2 = model2.predict(X_test_rf)[0]
         tipp3 = model3.predict(X_test)[0]
         
         if tipp < df['Prev_close'].iloc[i-testcycle] :
@@ -220,10 +221,10 @@ for ticker in tickers [0:20]:
         elif tipp2 ==1   and owned2 == 0:  
            owned2 = ROI2 / float(df['Prev_close'].iloc[i-testcycle]) 
            ROI2 = 0 
-        if lrpredict * 0.5 + SVRpredict * 0.2 + tipp2 * 0.3 > 0 and owned4 == 0:
+        if lrpredict * 0.4 + SVRpredict * 0.1 + tipp2 * 0.5 > 0 and owned4 == 0:
             owned4 = ROI4 / float(df['Prev_close'].iloc[i-testcycle])
             ROI4 = 0
-        elif lrpredict * 0.5 + SVRpredict * 0.2 + tipp2 * 0.3 < 0 and owned4 !=0 :
+        elif lrpredict * 0.4 + SVRpredict * 0.1 + tipp2 * 0.5 < 0 and owned4 !=0 :
             ROI4 = owned4 * df['Prev_close'].iloc[i-testcycle]
             owned4 = 0
          
@@ -252,7 +253,7 @@ for ticker in tickers [0:20]:
     #
     row +=1 
     Col +=1
-workbook.save('returns.xlsx') 
+workbook.save('returns_normalised_ver2.xlsx') 
 print(returns/20 , returns2/20 , returns3/20 ,returns4/20)
 end_time = time.time()
 print(f"Runtime: {end_time - start_time} seconds")
