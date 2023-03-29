@@ -19,7 +19,8 @@ workbook = openpyxl.Workbook()
 
 worksheet = workbook.active
 start_time = time.time()
-
+buyCost = 0.99985
+sellCost = 0.9998
 
 def calc_macd(data, len1,len2,len3):
     shortEMA = data.ewm(span = len1, adjust= False).mean()
@@ -49,13 +50,18 @@ returns = 0
 returns2 = 0
 returns3 = 0
 returns4 = 0
+trades1=0
+trades2=0
+trades3=0
+trades4=0
 row = 1
 Col = 65
 worksheet["C" + str(row)] = "Lin_reg"
 worksheet["D" + str(row)] = "Random_forest"
 worksheet["E" + str(row)] = "SVR"
 worksheet["F" + str(row)] = "ModLinKomb"
-for ticker in tickers [0:1]:
+for ticker in tickers [0:20]:
+    
     worksheet[chr(Col)+chr(Col)+ str(1)] =   ticker + "Lin_reg"
     worksheet[chr(Col)+chr(Col+1) + str(1)] = ticker + "Random_forest"
     worksheet[chr(Col)+ chr(Col+2) + str(1) ] = ticker + "SVR"
@@ -71,7 +77,7 @@ for ticker in tickers [0:1]:
     owned3 = 0 
     ROI4 = 1000
     owned4 = 0
-    end_date = datetime(2022,1,1)
+    end_date = datetime(2023,1,1)
     start_date = end_date - timedelta(days= 10 * 365)
     
     df = yf.download(ticker,start=start_date , end=end_date , interval='1d',prepost="false")
@@ -152,9 +158,9 @@ for ticker in tickers [0:1]:
     
     labels.append("OBV" "ADX14"  "StcOsc" "Move_direct"  "MACD"  "MACD_signal" "RSI" "RSI_volume"  "ADXUT" "ADXD" )
     df = df.replace(np.inf , np.nan).dropna()
-    #print(df.head(),df.tail())
     
-    testcycle = 365
+    
+    testcycle = 253
     
     
     for i in range(0,testcycle-1,1):
@@ -176,11 +182,11 @@ for ticker in tickers [0:1]:
         scaler = MinMaxScaler( feature_range=(-1,1))
         X_train_rf = scaler.fit_transform(X_train)
         X_test_rf = scaler.fit_transform(X_test)
-        
+       
         
         model = LinearRegression()
-        model2 = RandomForestClassifier(n_estimators=75 , oob_score=True , criterion="gini",random_state=0)
-        model3 = SVR(kernel= 'poly' , degree= 4 , )
+        model2 = RandomForestClassifier(n_estimators=100 , oob_score=True , criterion="gini",random_state=0)
+        model3 = SVR(kernel= 'poly' , degree= 4 ,epsilon=0.05   )
         
         
        
@@ -203,31 +209,39 @@ for ticker in tickers [0:1]:
         elif tipp3 > df['Prev_close'].iloc[i-testcycle]:
             SVRpredict = +1    
         if tipp < df['Prev_close'].iloc[i-testcycle] and owned!=0 :
-           ROI = owned * df['Prev_close'].iloc[i-testcycle]
+           ROI = owned * df['Prev_close'].iloc[i-testcycle]* sellCost
            owned = 0
+           trades1 +=1
         elif tipp >  df['Prev_close'].iloc[i-testcycle] and owned == 0: 
-           owned = ROI / float(df['Prev_close'].iloc[i-testcycle]) 
+           owned = (ROI * buyCost) / float(df['Prev_close'].iloc[i-testcycle]) 
            ROI = 0 
+           trades1 +=1
+           
         if tipp3 < df['Prev_close'].iloc[i-testcycle] and owned3!=0 :
-           ROI3 = owned3 * df['Prev_close'].iloc[i-testcycle]
+           ROI3 = owned3 * df['Prev_close'].iloc[i-testcycle] * sellCost
            owned3 = 0
+           trades3 +=1
         elif tipp3 >  df['Prev_close'].iloc[i-testcycle] and owned3 == 0: 
-           owned3 = ROI3 / float(df['Prev_close'].iloc[i-testcycle]) 
+           owned3 = (ROI3* buyCost)/ float(df['Prev_close'].iloc[i-testcycle]) 
            ROI3 = 0  
-             
+           trades3 +=1 
         if tipp2 == -1 and owned2!=0 :
-           ROI2 = owned2 * df['Prev_close'].iloc[i-testcycle]
+           ROI2 = owned2 * df['Prev_close'].iloc[i-testcycle] * sellCost
            owned2 = 0
+           trades2+=1
         elif tipp2 ==1   and owned2 == 0:  
-           owned2 = ROI2 / float(df['Prev_close'].iloc[i-testcycle]) 
+           owned2 = (ROI2 *buyCost) / float(df['Prev_close'].iloc[i-testcycle]) 
            ROI2 = 0 
-        if lrpredict * 0.4 + SVRpredict * 0.1 + tipp2 * 0.5 > 0 and owned4 == 0:
-            owned4 = ROI4 / float(df['Prev_close'].iloc[i-testcycle])
+           trades2+=1
+        if lrpredict * (0.3) + SVRpredict *(0.2)  + tipp2 * (0.5) > 0 and owned4 == 0:
+            owned4 = (ROI4 *buyCost ) / float(df['Prev_close'].iloc[i-testcycle])
             ROI4 = 0
-        elif lrpredict * 0.4 + SVRpredict * 0.1 + tipp2 * 0.5 < 0 and owned4 !=0 :
-            ROI4 = owned4 * df['Prev_close'].iloc[i-testcycle]
+            trades4+=1
+        elif lrpredict * (0.5) + SVRpredict * (0.2) + tipp2 * (0.5) < 0 and owned4 !=0 :
+            ROI4 = owned4 * df['Prev_close'].iloc[i-testcycle] * sellCost
             owned4 = 0
-         
+            trades4+=1
+
         worksheet[chr(Col)+chr(Col)+ str(i+2)] =  max(ROI,owned*df['Prev_close'].iloc[i-testcycle]) 
         worksheet[chr(Col)+chr(Col+1) + str(i+2)] = max(ROI2,owned2*df['Prev_close'].iloc[i-testcycle])
         worksheet[chr(Col)+ chr(Col+2) + str(i+2) ] = max(ROI3,owned3*df['Prev_close'].iloc[i-testcycle])
@@ -253,7 +267,8 @@ for ticker in tickers [0:1]:
     #
     row +=1 
     Col +=1
-workbook.save('returns_normalised_ver2.xlsx') 
+workbook.save('returns_transaction_fee_2022-23.xlsx') 
 print(returns/20 , returns2/20 , returns3/20 ,returns4/20)
+print(trades1/20,trades2/20,trades3/20,trades4/20)
 end_time = time.time()
 print(f"Runtime: {end_time - start_time} seconds")
